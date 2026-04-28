@@ -1,0 +1,3958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Parkland Dedication & Funding Sources Map</title>
+  
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-dark: #121212;
+      --glass-bg: rgba(30, 30, 30, 0.7);
+      --glass-border: rgba(255, 255, 255, 0.1);
+      --accent: #4ade80;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background-color: var(--bg-dark); color: var(--text-main); overflow: hidden; }
+    #app-container { display: flex; height: 100vh; width: 100vw; }
+    #sidebar { width: 350px; height: 100vh; background: var(--glass-bg); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-right: 1px solid var(--glass-border); display: flex; flex-direction: column; z-index: 1000; box-shadow: 4px 0 24px rgba(0, 0, 0, 0.5); }
+    .sidebar-header { padding: 24px; border-bottom: 1px solid var(--glass-border); }
+    .sidebar-header h1 { font-size: 1.5rem; font-weight: 700; color: #ffffff; margin-bottom: 8px; }
+    .sidebar-header p { color: var(--text-muted); font-size: 0.9rem; line-height: 1.4; }
+    .park-list { flex: 1; overflow-y: auto; padding: 16px; }
+    .park-card { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); border-radius: 12px; padding: 16px; margin-bottom: 12px; cursor: pointer; transition: all 0.3s ease; }
+    .park-card:hover { background: rgba(255, 255, 255, 0.08); transform: translateY(-2px); border-color: var(--accent); }
+    .park-name { font-weight: 600; font-size: 1.1rem; margin-bottom: 4px; color: #fff; }
+    .park-address { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px; }
+    .park-amount { display: inline-block; background: rgba(74, 222, 128, 0.15); color: var(--accent); padding: 4px 10px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; }
+    #map { flex: 1; height: 100%; background-color: #1a1a1a; }
+    .leaflet-popup-content-wrapper { background: rgba(30, 30, 30, 0.9) !important; backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.1); color: #fff !important; border-radius: 12px !important; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important; }
+    .leaflet-popup-tip { background: rgba(30, 30, 30, 0.9) !important; }
+    .popup-title { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 1.1rem; margin: 0 0 4px 0; color: var(--accent); }
+    .popup-content { font-family: 'Inter', sans-serif; font-size: 0.9rem; color: #ccc; margin: 0; }
+    .leaflet-container a.leaflet-popup-close-button { color: #999; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.4); }
+  
+    .mobile-close-btn { display: none; background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; }
+    .mobile-close-btn:hover { color: #fff; }
+    .funding-li { padding: 8px; margin-bottom: 4px; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; justify-content: space-between; border: 1px solid transparent; }
+    .funding-li:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
+    .funding-li.active { background: rgba(245, 158, 11, 0.15); border-color: #f59e0b; }
+    
+    @media (max-width: 768px) {
+      #sidebar { position: absolute; width: 100%; height: 100%; transform: translateX(-100%); transition: transform 0.3s ease; }
+      #sidebar.open { transform: translateX(0); }
+      #mobile-menu-btn { display: flex !important; align-items: center; justify-content: center; }
+      .mobile-close-btn { display: block; }
+    }
+
+  </style>
+</head>
+<body>
+  <div id="app-container">
+    <button id="mobile-menu-btn" style="position: absolute; top: 15px; left: 15px; z-index: 1000; background: var(--bg-dark); border: 1px solid var(--glass-border); border-radius: 8px; padding: 10px; color: var(--accent); cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.5); display: none;">
+      <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+    </button>
+    <div id="sidebar">
+      <div class="sidebar-header">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <h1 style="margin-bottom: 0;">Parkland Dedication</h1>
+          <button class="mobile-close-btn" id="mobile-close-btn">
+            <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
+        </div>
+        <p>14 parks and 371 funding sources shown. Use the layers button (top right) to toggle.</p>
+        <div style="margin-top: 12px; display: flex; gap: 8px;">
+          <input type="text" id="address-input" placeholder="Search address..." style="flex: 1; padding: 8px; border-radius: 6px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.05); color: #fff; font-family: 'Inter', sans-serif;" />
+          <button id="address-search-btn" style="padding: 8px 12px; border-radius: 6px; border: none; background: var(--accent); color: #000; font-weight: 600; cursor: pointer;">Search</button>
+        </div>
+      </div>
+      <div class="park-list" id="park-list"></div>
+    </div>
+    <div id="map"></div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  
+  <script>
+    const parkData = [{"Park":"Rice Park","Address":"109 W 4th St","City":"St Paul","State":" MN","Amount Used":20000,"Approval Date":43402,"Latitude":44.952879,"Longitude":-93.0718356},{"Park":"Westgate Commons","Address":"717 Berry St","City":"St Paul","State":" MN","Amount Used":175440.65,"Approval Date":44252,"Latitude":44.964906,"Longitude":-93.2065983},{"Park":"Wacouta Commons","Address":"465 Wacouta St","City":"St Paul","State":" MN","Amount Used":148787,"Approval Date":44736,"Latitude":44.951265,"Longitude":-93.08901},{"Park":"Valley Park","Address":"690 Jackson St","City":"St Paul","State":" MN","Amount Used":64885,"Approval Date":44736,"Latitude":44.9592607,"Longitude":-93.0987668},{"Park":"Victoria Park","Address":"852 Thurston St","City":"St Paul","State":" MN","Amount Used":229644,"Approval Date":44736,"Latitude":44.9179126,"Longitude":-93.1403802},{"Park":"Duluth and Case Rec","Address":"1020 Duluth St","City":"St Paul","State":" MN","Amount Used":68283,"Approval Date":44945,"Latitude":44.972475,"Longitude":-93.0506313},{"Park":"Hazel Park Rec","Address":"945 Hazel St N","City":"St Paul","State":" MN","Amount Used":20961,"Approval Date":44945,"Latitude":44.9691433,"Longitude":-93.0203486},{"Park":"Wabash Trail","Address":"2515 Wabash Ave","City":"St Paul","State":" MN","Amount Used":125000,"Approval Date":45027,"Latitude":44.9616302,"Longitude":-93.2047294},{"Park":"Midway Peace Park","Address":"416 N Griggs St","City":"St Paul","State":" MN","Amount Used":103500,"Approval Date":45106,"Latitude":44.9533724,"Longitude":-93.1516055},{"Park":"Pedro Park","Address":"114 10th St E","City":"St Paul","State":" MN","Amount Used":295251.74,"Approval Date":45121,"Latitude":44.9517261,"Longitude":-93.0939457},{"Park":"Prospect Park","Address":"180 Delos St W","City":"St Paul","State":" MN","Amount Used":87949,"Approval Date":45281,"Latitude":44.9338401,"Longitude":-93.0918008},{"Park":"Central Village Trails","Address":"457 Central Ave W","City":"St Paul","State":" MN","Amount Used":87175,"Approval Date":45474,"Latitude":44.9532162,"Longitude":-93.1176782},{"Park":"Linwood Rec","Address":"860 St Clair Ave","City":"St Paul","State":" MN","Amount Used":105242.36,"Approval Date":45891,"Latitude":44.9342147,"Longitude":-93.1361091},{"Park":"Taylor Park","Address":"2131 Howard Street South","City":"St Paul","State":" MN","Amount Used":195597.33,"Approval Date":45980,"Latitude":44.9211061,"Longitude":-93.0093574}];
+    
+    // Embed data directly
+    const fundingData = [
+  {
+    "ADDRESS": "1683 JUNO AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 274.49,
+    "PAIDDATE": 42289,
+    "Latitude": 44.926183,
+    "Longitude": -93.171335
+  },
+  {
+    "ADDRESS": "651 BLAIR AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 74.67,
+    "PAIDDATE": 42295,
+    "Latitude": 44.9612321,
+    "Longitude": -93.1276857
+  },
+  {
+    "ADDRESS": "66 WINNIPEG AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 74.38,
+    "PAIDDATE": 42295,
+    "Latitude": 44.9673915,
+    "Longitude": -93.1031143
+  },
+  {
+    "ADDRESS": "1305 MADISON STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 4914,
+    "PAIDDATE": 42319,
+    "Latitude": 44.9020667,
+    "Longitude": -93.1619537
+  },
+  {
+    "ADDRESS": "295 PHALEN BOULEVARD",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 8795,
+    "PAIDDATE": 42319,
+    "Latitude": 44.9617669,
+    "Longitude": -93.0869919
+  },
+  {
+    "ADDRESS": "661 LASALLE STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1760,
+    "PAIDDATE": 42323,
+    "Latitude": 44.9610663,
+    "Longitude": -93.1962717
+  },
+  {
+    "ADDRESS": "1581 CHRISTIE PLACE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 954,
+    "PAIDDATE": 42325,
+    "Latitude": 44.9909304,
+    "Longitude": -93.0335145
+  },
+  {
+    "ADDRESS": "200 7TH STREET WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 12808,
+    "PAIDDATE": 42332,
+    "Latitude": 44.9437821,
+    "Longitude": -93.1028772
+  },
+  {
+    "ADDRESS": "359 PLEASANT AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 42376,
+    "Latitude": 44.9415464,
+    "Longitude": -93.112939
+  },
+  {
+    "ADDRESS": "361 PLEASANT AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 42376,
+    "Latitude": 44.9415207,
+    "Longitude": -93.1129995
+  },
+  {
+    "ADDRESS": "735 OSCEOLA AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 42393,
+    "Latitude": 44.935742,
+    "Longitude": -93.132225
+  },
+  {
+    "ADDRESS": "709 OSCEOLA AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 42393,
+    "Latitude": 44.9357412,
+    "Longitude": -93.1316461
+  },
+  {
+    "ADDRESS": "1635 DALE STREET NORTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 42424,
+    "Latitude": 44.9904436,
+    "Longitude": -93.1265099
+  },
+  {
+    "ADDRESS": "2301 COMO AVENUE FL FL 2-4",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 6699,
+    "PAIDDATE": 42436,
+    "Latitude": 44.9822228,
+    "Longitude": -93.1950896
+  },
+  {
+    "ADDRESS": "2525 WABASH AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 11178,
+    "PAIDDATE": 42481,
+    "Latitude": 44.9623307,
+    "Longitude": -93.2050135
+  },
+  {
+    "ADDRESS": "1771 ENERGY PARK DRIVE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 17469,
+    "PAIDDATE": 42507,
+    "Latitude": 44.9724763,
+    "Longitude": -93.1751535
+  },
+  {
+    "ADDRESS": "735 RAYMOND AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 50513,
+    "PAIDDATE": 42515,
+    "Latitude": 44.9633031,
+    "Longitude": -93.1976769
+  },
+  {
+    "ADDRESS": "1585 CHRISTIE PLACE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1004,
+    "PAIDDATE": 42515,
+    "Latitude": 44.9909566,
+    "Longitude": -93.0334233
+  },
+  {
+    "ADDRESS": "1435 REANEY AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 567,
+    "PAIDDATE": 42521,
+    "Latitude": 44.9641188,
+    "Longitude": -93.0400101
+  },
+  {
+    "ADDRESS": "725 CLEVELAND AVENUE SOUTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 11134,
+    "PAIDDATE": 42523,
+    "Latitude": 44.9193298,
+    "Longitude": -93.1877532
+  },
+  {
+    "ADDRESS": "310 GEORGE STREET WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 540,
+    "PAIDDATE": 42570,
+    "Latitude": 44.929493500471,
+    "Longitude": -93.098637697449
+  },
+  {
+    "ADDRESS": "1668 PROSPERITY ROAD",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1067,
+    "PAIDDATE": 42570,
+    "Latitude": 44.9914304,
+    "Longitude": -93.0341707
+  },
+  {
+    "ADDRESS": "677 RIVOLI STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 171,
+    "PAIDDATE": 42593,
+    "Latitude": 44.9616968,
+    "Longitude": -93.083245
+  },
+  {
+    "ADDRESS": "673 RIVOLI STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 221,
+    "PAIDDATE": 42593,
+    "Latitude": 44.9615861,
+    "Longitude": -93.0832616
+  },
+  {
+    "ADDRESS": "681 RIVOLI STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 207,
+    "PAIDDATE": 42597,
+    "Latitude": 44.9618047,
+    "Longitude": -93.0832761
+  },
+  {
+    "ADDRESS": "697 RIVOLI STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 180,
+    "PAIDDATE": 42597,
+    "Latitude": 44.9622411,
+    "Longitude": -93.0835494
+  },
+  {
+    "ADDRESS": "689 RIVOLI STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 207,
+    "PAIDDATE": 42597,
+    "Latitude": 44.9620214,
+    "Longitude": -93.0834278
+  },
+  {
+    "ADDRESS": "685 RIVOLI STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 207,
+    "PAIDDATE": 42597,
+    "Latitude": 44.9619158,
+    "Longitude": -93.0833303
+  },
+  {
+    "ADDRESS": "693 RIVOLI STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 180,
+    "PAIDDATE": 42597,
+    "Latitude": 44.9620795,
+    "Longitude": -93.0832713
+  },
+  {
+    "ADDRESS": "1589 CHRISTIE PLACE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1053,
+    "PAIDDATE": 42600,
+    "Latitude": 44.9909827,
+    "Longitude": -93.0333321
+  },
+  {
+    "ADDRESS": "21 CROCUS PLACE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 42610,
+    "Latitude": 44.9360191,
+    "Longitude": -93.1263401
+  },
+  {
+    "ADDRESS": "360 UNIVERSITY AVENUE WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 8400,
+    "PAIDDATE": 42610,
+    "Latitude": 44.955681,
+    "Longitude": -93.115252
+  },
+  {
+    "ADDRESS": "1439 FAIRMOUNT AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 42610,
+    "Latitude": 44.9372102,
+    "Longitude": -93.160888
+  },
+  {
+    "ADDRESS": "198 SARATOGA STREET NORTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 42611,
+    "Latitude": 44.9468894,
+    "Longitude": -93.1643347
+  },
+  {
+    "ADDRESS": "1450 FRANKSON AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1008,
+    "PAIDDATE": 42611,
+    "Latitude": 44.9824158,
+    "Longitude": -93.1613192
+  },
+  {
+    "ADDRESS": "2323 CHARLES AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 6790.5,
+    "PAIDDATE": 42624,
+    "Latitude": 44.9645782,
+    "Longitude": -93.1948787
+  },
+  {
+    "ADDRESS": "88 CESAR CHAVEZ STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1649,
+    "PAIDDATE": 42625,
+    "Latitude": 44.9319088,
+    "Longitude": -93.0819464
+  },
+  {
+    "ADDRESS": "535 DAYTON AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 42645,
+    "Latitude": 44.9476683,
+    "Longitude": -93.1225743
+  },
+  {
+    "ADDRESS": "355 PLEASANT AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 42649,
+    "Latitude": 44.9415978,
+    "Longitude": -93.1128179
+  },
+  {
+    "ADDRESS": "1516 HARTFORD AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 42655,
+    "Latitude": 44.9232759,
+    "Longitude": -93.1642434
+  },
+  {
+    "ADDRESS": "347 PLEASANT AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 42662,
+    "Latitude": 44.9417007,
+    "Longitude": -93.1125758
+  },
+  {
+    "ADDRESS": "351 PLEASANT AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 42662,
+    "Latitude": 44.9416493,
+    "Longitude": -93.1126969
+  },
+  {
+    "ADDRESS": "1910 FAIRMOUNT AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 42687,
+    "Latitude": 44.9369251,
+    "Longitude": -93.18107
+  },
+  {
+    "ADDRESS": "1286 JEFFERSON AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 42691,
+    "Latitude": 44.9305007,
+    "Longitude": -93.1546757
+  },
+  {
+    "ADDRESS": "2092 OAKRIDGE STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 42696,
+    "Latitude": 44.9208427,
+    "Longitude": -93.0121465
+  },
+  {
+    "ADDRESS": "244 4TH STREET EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 21587,
+    "PAIDDATE": 42702,
+    "Latitude": 44.9483914,
+    "Longitude": -93.0857626
+  },
+  {
+    "ADDRESS": "427 MOUNT IDA STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 14,
+    "PAIDDATE": 42711,
+    "Latitude": 44.962451,
+    "Longitude": -93.0825938
+  },
+  {
+    "ADDRESS": "430 MINNEHAHA AVENUE EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 20,
+    "PAIDDATE": 42711,
+    "Latitude": 44.9627627,
+    "Longitude": -93.0823314
+  },
+  {
+    "ADDRESS": "433 MOUNT IDA STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 20,
+    "PAIDDATE": 42711,
+    "Latitude": 44.9624327,
+    "Longitude": -93.0822012
+  },
+  {
+    "ADDRESS": "218 LARPENTEUR AVENUE WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 704,
+    "PAIDDATE": 42723,
+    "Latitude": 44.9917658,
+    "Longitude": -93.109062
+  },
+  {
+    "ADDRESS": "1609 HILLCREST AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 42725,
+    "Latitude": 44.9171179,
+    "Longitude": -93.1689257
+  },
+  {
+    "ADDRESS": "2220 REANEY AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 491,
+    "PAIDDATE": 42737,
+    "Latitude": 44.9638766,
+    "Longitude": -93.0071087
+  },
+  {
+    "ADDRESS": "340 TORONTO STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 42745,
+    "Latitude": 44.9312017,
+    "Longitude": -93.1256152
+  },
+  {
+    "ADDRESS": "829 ALGONQUIN AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 421,
+    "PAIDDATE": 42800,
+    "Latitude": 44.966517,
+    "Longitude": -93.0157872
+  },
+  {
+    "ADDRESS": "1695 HIGHLAND PARKWAY",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 42808,
+    "Latitude": 44.9198354,
+    "Longitude": -93.1717872
+  },
+  {
+    "ADDRESS": "1005 PALACE AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 675,
+    "PAIDDATE": 42817,
+    "Latitude": 44.9287792,
+    "Longitude": -93.1452489
+  },
+  {
+    "ADDRESS": "341 PLEASANT AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 42870,
+    "Latitude": 44.9417778,
+    "Longitude": -93.1123943
+  },
+  {
+    "ADDRESS": "928 7TH STREET WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 3091,
+    "PAIDDATE": 42877,
+    "Latitude": 44.9287388,
+    "Longitude": -93.1247923
+  },
+  {
+    "ADDRESS": "12 B STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 42885,
+    "Latitude": 44.9407233,
+    "Longitude": -93.0264922
+  },
+  {
+    "ADDRESS": "1235 SCHEFFER AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 42892,
+    "Latitude": 44.9215874,
+    "Longitude": -93.1524395
+  },
+  {
+    "ADDRESS": "2084 REANEY AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 648,
+    "PAIDDATE": 42900,
+    "Latitude": 44.9638828,
+    "Longitude": -93.0123426
+  },
+  {
+    "ADDRESS": "35 GERANIUM AVENUE WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 240,
+    "PAIDDATE": 42905,
+    "Latitude": 44.9756046,
+    "Longitude": -93.1260086
+  },
+  {
+    "ADDRESS": "1635 HAZELWOOD STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 941,
+    "PAIDDATE": 42947,
+    "Latitude": 44.9896579,
+    "Longitude": -93.0355724
+  },
+  {
+    "ADDRESS": "787 HAMPDEN AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 23219,
+    "PAIDDATE": 42963,
+    "Latitude": 44.9641547,
+    "Longitude": -93.1936215
+  },
+  {
+    "ADDRESS": "594 BURLINGTON ROAD",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 42970,
+    "Latitude": 44.9221216,
+    "Longitude": -93.0118867
+  },
+  {
+    "ADDRESS": "363 PLEASANT AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 42983,
+    "Latitude": 44.941495,
+    "Longitude": -93.11306
+  },
+  {
+    "ADDRESS": "373 RUTH STREET NORTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1318,
+    "PAIDDATE": 42989,
+    "Latitude": 44.9536233,
+    "Longitude": -93.0152519
+  },
+  {
+    "ADDRESS": "2094 GRAND AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 7200,
+    "PAIDDATE": 42991,
+    "Latitude": 44.9398567,
+    "Longitude": -93.1889019
+  },
+  {
+    "ADDRESS": "1115 MCLEAN AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 644,
+    "PAIDDATE": 42996,
+    "Latitude": 44.950478,
+    "Longitude": -93.0534886
+  },
+  {
+    "ADDRESS": "1174 GRAND AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 3270,
+    "PAIDDATE": 43003,
+    "Latitude": 44.9396879,
+    "Longitude": -93.149865
+  },
+  {
+    "ADDRESS": "830 FAIRMOUNT AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43003,
+    "Latitude": 44.9366351,
+    "Longitude": -93.1351482
+  },
+  {
+    "ADDRESS": "365 PLEASANT AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43009,
+    "Latitude": 44.9328811,
+    "Longitude": -93.1326844
+  },
+  {
+    "ADDRESS": "1572 BURG AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43009,
+    "Latitude": 44.8943208,
+    "Longitude": -93.0055585
+  },
+  {
+    "ADDRESS": "717 RIVOLI STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 230,
+    "PAIDDATE": 43010,
+    "Latitude": 44.9626343,
+    "Longitude": -93.0833516
+  },
+  {
+    "ADDRESS": "709 RIVOLI STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 185,
+    "PAIDDATE": 43010,
+    "Latitude": 44.9625993,
+    "Longitude": -93.0835674
+  },
+  {
+    "ADDRESS": "713 RIVOLI STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 185,
+    "PAIDDATE": 43010,
+    "Latitude": 44.9626259,
+    "Longitude": -93.0833519
+  },
+  {
+    "ADDRESS": "701 RIVOLI STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 185,
+    "PAIDDATE": 43010,
+    "Latitude": 44.9623685,
+    "Longitude": -93.0835654
+  },
+  {
+    "ADDRESS": "705 RIVOLI STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 180,
+    "PAIDDATE": 43010,
+    "Latitude": 44.9624839,
+    "Longitude": -93.0835628
+  },
+  {
+    "ADDRESS": "1425 VICTORIA WAY",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 5099,
+    "PAIDDATE": 43020,
+    "Latitude": 44.917689,
+    "Longitude": -93.1369822
+  },
+  {
+    "ADDRESS": "2390 7TH STREET WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 2400,
+    "PAIDDATE": 43027,
+    "Latitude": 44.9027679,
+    "Longitude": -93.1680887
+  },
+  {
+    "ADDRESS": "38 MISSISSIPPI RIVER BOULEVARD NORTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43032,
+    "Latitude": 44.9429649,
+    "Longitude": -93.1929164
+  },
+  {
+    "ADDRESS": "178 WHEELOCK PARKWAY WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1094,
+    "PAIDDATE": 43034,
+    "Latitude": 44.989854,
+    "Longitude": -93.1079805
+  },
+  {
+    "ADDRESS": "531 DAYTON AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43039,
+    "Latitude": 44.9474964,
+    "Longitude": -93.1224823
+  },
+  {
+    "ADDRESS": "35 SYNDICATE STreet South",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 10350,
+    "PAIDDATE": 43041,
+    "Latitude": 44.9403574,
+    "Longitude": -93.1545917
+  },
+  {
+    "ADDRESS": "1603 ALBEMARLE STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1134,
+    "PAIDDATE": 43044,
+    "Latitude": 44.988797,
+    "Longitude": -93.1072676
+  },
+  {
+    "ADDRESS": "572 BURLINGTON ROAD",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43053,
+    "Latitude": 44.922624,
+    "Longitude": -93.012698
+  },
+  {
+    "ADDRESS": "200 EXCHANGE STreet South",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 86738,
+    "PAIDDATE": 43065,
+    "Latitude": 44.9425879,
+    "Longitude": -93.1018069
+  },
+  {
+    "ADDRESS": "345 CEDAR STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 69804,
+    "PAIDDATE": 43065,
+    "Latitude": 44.945533,
+    "Longitude": -93.09265
+  },
+  {
+    "ADDRESS": "111 KELLOGG BOULEVARD EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 4026,
+    "PAIDDATE": 43080,
+    "Latitude": 44.945268796719,
+    "Longitude": -93.090277891904
+  },
+  {
+    "ADDRESS": "218 7TH STREET EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 900,
+    "PAIDDATE": 43138,
+    "Latitude": 44.9506977,
+    "Longitude": -93.0887826
+  },
+  {
+    "ADDRESS": "1400 SELBY AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 4019,
+    "PAIDDATE": 43138,
+    "Latitude": 44.9462604,
+    "Longitude": -93.1588009
+  },
+  {
+    "ADDRESS": "767 EUSTIS STREET LOT 1 OF 2",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 4973,
+    "PAIDDATE": 43145,
+    "Latitude": 44.9629138,
+    "Longitude": -93.2041108
+  },
+  {
+    "ADDRESS": "639 CLEVELAND AVENUE SOUTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 3600,
+    "PAIDDATE": 43157,
+    "Latitude": 44.9222598,
+    "Longitude": -93.187487
+  },
+  {
+    "ADDRESS": "940 SELBY AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 3274,
+    "PAIDDATE": 43167,
+    "Latitude": 44.9464882,
+    "Longitude": -93.1399042
+  },
+  {
+    "ADDRESS": "852 SELBY AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 8109,
+    "PAIDDATE": 43167,
+    "Latitude": 44.9465139,
+    "Longitude": -93.1360751
+  },
+  {
+    "ADDRESS": "1290 SNELLING AVENUE NORTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43192,
+    "Latitude": 44.980555642084,
+    "Longitude": -93.166885275757
+  },
+  {
+    "ADDRESS": "595 ALDINE STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1770,
+    "PAIDDATE": 43209,
+    "Latitude": 44.9588837,
+    "Longitude": -93.172574
+  },
+  {
+    "ADDRESS": "1500 THOMAS AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 7798,
+    "PAIDDATE": 43212,
+    "Latitude": 44.9590225,
+    "Longitude": -93.1642832
+  },
+  {
+    "ADDRESS": "1000 WESTGATE DRIVE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1802,
+    "PAIDDATE": 43236,
+    "Latitude": 44.9709253,
+    "Longitude": -93.203685
+  },
+  {
+    "ADDRESS": "1641 HAZELWOOD STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 941,
+    "PAIDDATE": 43241,
+    "Latitude": 44.9896956,
+    "Longitude": -93.0355725
+  },
+  {
+    "ADDRESS": "472 JACKSON STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 8492,
+    "PAIDDATE": 43243,
+    "Latitude": 44.9510175,
+    "Longitude": -93.0916581
+  },
+  {
+    "ADDRESS": "631 TRANSFER ROAD",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 5547,
+    "PAIDDATE": 43248,
+    "Latitude": 44.9607786,
+    "Longitude": -93.187425
+  },
+  {
+    "ADDRESS": "1373 ARKWRIGHT STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 878,
+    "PAIDDATE": 43269,
+    "Latitude": 44.9835138,
+    "Longitude": -93.0838206
+  },
+  {
+    "ADDRESS": "897 HOWARD STREET NORTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1058,
+    "PAIDDATE": 43290,
+    "Latitude": 44.9676164,
+    "Longitude": -93.0079232
+  },
+  {
+    "ADDRESS": "1631 STREET ALBANS STREET NORTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43290,
+    "Latitude": 44.9898115,
+    "Longitude": -93.1287949
+  },
+  {
+    "ADDRESS": "1191 CONWAY STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1089,
+    "PAIDDATE": 43291,
+    "Latitude": 44.9559546,
+    "Longitude": -93.0502712
+  },
+  {
+    "ADDRESS": "1857 IVY AVENUE EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 873,
+    "PAIDDATE": 43298,
+    "Latitude": 44.981197,
+    "Longitude": -93.0218945
+  },
+  {
+    "ADDRESS": "1975 MARSHALL AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1689,
+    "PAIDDATE": 43299,
+    "Latitude": 44.9484844,
+    "Longitude": -93.1838251
+  },
+  {
+    "ADDRESS": "149 JESSAMINE AVENUE EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 540,
+    "PAIDDATE": 43317,
+    "Latitude": 44.97458,
+    "Longitude": -93.0938655
+  },
+  {
+    "ADDRESS": "133 7TH STREET EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 33184,
+    "PAIDDATE": 43320,
+    "Latitude": 44.9500089,
+    "Longitude": -93.0930005
+  },
+  {
+    "ADDRESS": "246 SNELLING AVENUE SOUTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 38862,
+    "PAIDDATE": 43331,
+    "Latitude": 44.933472,
+    "Longitude": -93.16691
+  },
+  {
+    "ADDRESS": "253 4TH STREET EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 47183,
+    "PAIDDATE": 43334,
+    "Latitude": 44.948682791792,
+    "Longitude": -93.085973253052
+  },
+  {
+    "ADDRESS": "2044 GRAND AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 3147,
+    "PAIDDATE": 43369,
+    "Latitude": 44.9398253,
+    "Longitude": -93.1867475
+  },
+  {
+    "ADDRESS": "1385 HUNTING VALLEY ROAD",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 4776,
+    "PAIDDATE": 43370,
+    "Latitude": 44.9829876,
+    "Longitude": -93.2040324
+  },
+  {
+    "ADDRESS": "1564 BURG AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43374,
+    "Latitude": 44.8946118,
+    "Longitude": -93.0056645
+  },
+  {
+    "ADDRESS": "733 SELBY AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 10800,
+    "PAIDDATE": 43380,
+    "Latitude": 44.9466867,
+    "Longitude": -93.1309658
+  },
+  {
+    "ADDRESS": "2460 EDGCUMBE ROAD",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43394,
+    "Latitude": 44.905747,
+    "Longitude": -93.17712
+  },
+  {
+    "ADDRESS": "1608 BURG AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43396,
+    "Latitude": 44.8928234,
+    "Longitude": -93.0049829
+  },
+  {
+    "ADDRESS": "46 4TH STREET EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 2680,
+    "PAIDDATE": 43410,
+    "Latitude": 44.945495079441,
+    "Longitude": -93.092269356775
+  },
+  {
+    "ADDRESS": "150 SNELLING AVENUE NORTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 58025,
+    "PAIDDATE": 43418,
+    "Latitude": 44.945797300182,
+    "Longitude": -93.166916829634
+  },
+  {
+    "ADDRESS": "583 WHITALL STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 675,
+    "PAIDDATE": 43475,
+    "Latitude": 44.9666775,
+    "Longitude": -93.0758795
+  },
+  {
+    "ADDRESS": "2252 REANEY AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 648,
+    "PAIDDATE": 43508,
+    "Latitude": 44.9638755,
+    "Longitude": -93.00634
+  },
+  {
+    "ADDRESS": "344 MISSISSIPPI RIVER Boulevard South",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43508,
+    "Latitude": 44.9311782,
+    "Longitude": -93.1976509
+  },
+  {
+    "ADDRESS": "1160 CLARENCE STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 3746,
+    "PAIDDATE": 43514,
+    "Latitude": 44.9760696,
+    "Longitude": -93.0429098
+  },
+  {
+    "ADDRESS": "433 MARYLAND AVENUE WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 695,
+    "PAIDDATE": 43516,
+    "Latitude": 44.9774552,
+    "Longitude": -93.1184672
+  },
+  {
+    "ADDRESS": "437 MARYLAND AVENUE WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 705,
+    "PAIDDATE": 43516,
+    "Latitude": 44.9774551,
+    "Longitude": -93.1185717
+  },
+  {
+    "ADDRESS": "429 MARYLAND AVENUE WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 695,
+    "PAIDDATE": 43516,
+    "Latitude": 44.9774553,
+    "Longitude": -93.1183627
+  },
+  {
+    "ADDRESS": "425 MARYLAND AVENUE WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 695,
+    "PAIDDATE": 43516,
+    "Latitude": 44.9774554,
+    "Longitude": -93.1182582
+  },
+  {
+    "ADDRESS": "1791 BEECHWOOD AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43544,
+    "Latitude": 44.915326,
+    "Longitude": -93.1759014
+  },
+  {
+    "ADDRESS": "2012 EDGCUMBE ROAD",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43545,
+    "Latitude": 44.9088049,
+    "Longitude": -93.1630461
+  },
+  {
+    "ADDRESS": "900 OLD LEXINGTON AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 89298,
+    "PAIDDATE": 43557,
+    "Latitude": 44.9136074,
+    "Longitude": -93.1480599
+  },
+  {
+    "ADDRESS": "1560 PORTLAND AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 4143,
+    "PAIDDATE": 43562,
+    "Latitude": 44.9427506,
+    "Longitude": -93.1661315
+  },
+  {
+    "ADDRESS": "1301 CHELMSFORD STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43562,
+    "Latitude": 44.9805816,
+    "Longitude": -93.1904341
+  },
+  {
+    "ADDRESS": "575 BURLINGTON ROAD",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43563,
+    "Latitude": 44.922551,
+    "Longitude": -93.012905
+  },
+  {
+    "ADDRESS": "837 IGLEHART AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43569,
+    "Latitude": 44.9496681,
+    "Longitude": -93.1354985
+  },
+  {
+    "ADDRESS": "390 HERSCHEL STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 731,
+    "PAIDDATE": 43580,
+    "Latitude": 44.9535165,
+    "Longitude": -93.1732459
+  },
+  {
+    "ADDRESS": "441 HYACINTH AVENUE EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 977,
+    "PAIDDATE": 43583,
+    "Latitude": 44.9796483,
+    "Longitude": -93.0818671
+  },
+  {
+    "ADDRESS": "571 BURLINGTON ROAD",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43583,
+    "Latitude": 44.9227997,
+    "Longitude": -93.0131617
+  },
+  {
+    "ADDRESS": "1 CROCUS HILL",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43597,
+    "Latitude": 44.9404344,
+    "Longitude": -93.1210959
+  },
+  {
+    "ADDRESS": "421 MARYLAND AVENUE WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 695,
+    "PAIDDATE": 43627,
+    "Latitude": 44.9774555,
+    "Longitude": -93.1181536
+  },
+  {
+    "ADDRESS": "340 SIBLEY STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 4335,
+    "PAIDDATE": 43642,
+    "Latitude": 44.9482812,
+    "Longitude": -93.0873485
+  },
+  {
+    "ADDRESS": "241 KELLOGG BOULEVARD EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 29700,
+    "PAIDDATE": 43647,
+    "Latitude": 44.947999013653,
+    "Longitude": -93.085029192943
+  },
+  {
+    "ADDRESS": "1495 UNIVERSITY AVENUE WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 2303,
+    "PAIDDATE": 43654,
+    "Latitude": 44.9608364,
+    "Longitude": -93.1901075
+  },
+  {
+    "ADDRESS": "1152 STREET CLAIR AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43654,
+    "Latitude": 44.9341004,
+    "Longitude": -93.1488232
+  },
+  {
+    "ADDRESS": "120 YORK AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 504,
+    "PAIDDATE": 43660,
+    "Latitude": 44.9680498,
+    "Longitude": -93.095816
+  },
+  {
+    "ADDRESS": "918 RAYMOND AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 2400,
+    "PAIDDATE": 43661,
+    "Latitude": 44.9688694,
+    "Longitude": -93.1979148
+  },
+  {
+    "ADDRESS": "137 MAGNOLIA AVENUE EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 522,
+    "PAIDDATE": 43662,
+    "Latitude": 44.973834497404,
+    "Longitude": -93.09555678416
+  },
+  {
+    "ADDRESS": "2222 STEWART AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 2900,
+    "PAIDDATE": 43667,
+    "Latitude": 44.9035883,
+    "Longitude": -93.1588185
+  },
+  {
+    "ADDRESS": "962 COMO AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43674,
+    "Latitude": 44.9747047,
+    "Longitude": -93.1407591
+  },
+  {
+    "ADDRESS": "255 WESTERN AVENUE NORTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 26660,
+    "PAIDDATE": 43675,
+    "Latitude": 44.9473891,
+    "Longitude": -93.1161302
+  },
+  {
+    "ADDRESS": "2250 UNIVERSITY AVENUE WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 40815,
+    "PAIDDATE": 43675,
+    "Latitude": 44.9620768,
+    "Longitude": -93.1931605
+  },
+  {
+    "ADDRESS": "694 LINCOLN AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43682,
+    "Latitude": 44.9387332,
+    "Longitude": -93.1294612
+  },
+  {
+    "ADDRESS": "609 DAYTON AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43692,
+    "Latitude": 44.9474958,
+    "Longitude": -93.1257297
+  },
+  {
+    "ADDRESS": "444 HALL AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43705,
+    "Latitude": 44.9326222,
+    "Longitude": -93.0865749
+  },
+  {
+    "ADDRESS": "417 MARYLAND AVENUE WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 695,
+    "PAIDDATE": 43710,
+    "Latitude": 44.9774556,
+    "Longitude": -93.1180491
+  },
+  {
+    "ADDRESS": "413 MARYLAND AVENUE WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 695,
+    "PAIDDATE": 43710,
+    "Latitude": 44.9774557,
+    "Longitude": -93.1179446
+  },
+  {
+    "ADDRESS": "944 GOODRICH AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43733,
+    "Latitude": 44.9377503,
+    "Longitude": -93.1400368
+  },
+  {
+    "ADDRESS": "140 DALE STREET NORTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 5571,
+    "PAIDDATE": 43734,
+    "Latitude": 44.945377082736,
+    "Longitude": -93.126182313687
+  },
+  {
+    "ADDRESS": "590 PARK STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 4200,
+    "PAIDDATE": 43738,
+    "Latitude": 44.9591946,
+    "Longitude": -93.1032598
+  },
+  {
+    "ADDRESS": "1556 BURG AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43741,
+    "Latitude": 44.8948713,
+    "Longitude": -93.0058015
+  },
+  {
+    "ADDRESS": "741 HYACINTH AVENUE EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 270,
+    "PAIDDATE": 43745,
+    "Latitude": 44.9804273,
+    "Longitude": -93.0692125
+  },
+  {
+    "ADDRESS": "1661 HAZELWOOD STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 873,
+    "PAIDDATE": 43748,
+    "Latitude": 44.9898212,
+    "Longitude": -93.0355726
+  },
+  {
+    "ADDRESS": "84 WATER STREET WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 7524,
+    "PAIDDATE": 43752,
+    "Latitude": 44.9388384,
+    "Longitude": -93.0922079
+  },
+  {
+    "ADDRESS": "550 VANDALIA STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 70,
+    "PAIDDATE": 43753,
+    "Latitude": 44.958313,
+    "Longitude": -93.190925
+  },
+  {
+    "ADDRESS": "770 FORSTER STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 761,
+    "PAIDDATE": 43753,
+    "Latitude": 44.9217248,
+    "Longitude": -93.1317985
+  },
+  {
+    "ADDRESS": "590 WELLS STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 675,
+    "PAIDDATE": 43769,
+    "Latitude": 44.9674472,
+    "Longitude": -93.0746487
+  },
+  {
+    "ADDRESS": "588 WELLS STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 675,
+    "PAIDDATE": 43769,
+    "Latitude": 44.967447,
+    "Longitude": -93.0746767
+  },
+  {
+    "ADDRESS": "457 SNELLING AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 21650,
+    "PAIDDATE": 43774,
+    "Latitude": 44.9553264,
+    "Longitude": -93.1668331
+  },
+  {
+    "ADDRESS": "1402 7TH STREET EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 4230,
+    "PAIDDATE": 43774,
+    "Latitude": 44.96663,
+    "Longitude": -93.041035
+  },
+  {
+    "ADDRESS": "1554 GRAND AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 4142,
+    "PAIDDATE": 43783,
+    "Latitude": 44.9398403,
+    "Longitude": -93.1659013
+  },
+  {
+    "ADDRESS": "1611 MARSHALL AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1821,
+    "PAIDDATE": 43786,
+    "Latitude": 44.9485132,
+    "Longitude": -93.168242
+  },
+  {
+    "ADDRESS": "935 IGLEHART AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 983,
+    "PAIDDATE": 43835,
+    "Latitude": 44.9496548,
+    "Longitude": -93.1397116
+  },
+  {
+    "ADDRESS": "1048 DAYTON AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 2160,
+    "PAIDDATE": 43843,
+    "Latitude": 44.9473497,
+    "Longitude": -93.1429936
+  },
+  {
+    "ADDRESS": "1880 OLD HUDSON ROAD",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 24404,
+    "PAIDDATE": 43851,
+    "Latitude": 44.9526623,
+    "Longitude": -93.0208764
+  },
+  {
+    "ADDRESS": "1745 PINEHURST AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43885,
+    "Latitude": 44.9189345,
+    "Longitude": -93.1740531
+  },
+  {
+    "ADDRESS": "969 RICE STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 248,
+    "PAIDDATE": 43888,
+    "Latitude": 44.9705809,
+    "Longitude": -93.1062007
+  },
+  {
+    "ADDRESS": "409 MARYLAND AVENUE WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 695,
+    "PAIDDATE": 43891,
+    "Latitude": 44.9774558,
+    "Longitude": -93.1178401
+  },
+  {
+    "ADDRESS": "697 ORRIN STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43898,
+    "Latitude": 44.9202375,
+    "Longitude": -93.1326401
+  },
+  {
+    "ADDRESS": "228 FRONT AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43898,
+    "Latitude": 44.970129,
+    "Longitude": -93.109603
+  },
+  {
+    "ADDRESS": "150 SMITH AVENUE NORTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 14530,
+    "PAIDDATE": 43900,
+    "Latitude": 44.945375,
+    "Longitude": -93.1032804
+  },
+  {
+    "ADDRESS": "1192 EDGCUMBE ROAD",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43905,
+    "Latitude": 44.9303849,
+    "Longitude": -93.1497873
+  },
+  {
+    "ADDRESS": "412 BEACON AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43919,
+    "Latitude": 44.9537878,
+    "Longitude": -93.1758008
+  },
+  {
+    "ADDRESS": "735 HYACINTH AVENUE EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 545,
+    "PAIDDATE": 43934,
+    "Latitude": 44.9804198,
+    "Longitude": -93.069601
+  },
+  {
+    "ADDRESS": "902 FARRINGTON STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 221,
+    "PAIDDATE": 43942,
+    "Latitude": 44.9685582,
+    "Longitude": -93.1134602
+  },
+  {
+    "ADDRESS": "2116 CARTER AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43951,
+    "Latitude": 44.9816572,
+    "Longitude": -93.1896916
+  },
+  {
+    "ADDRESS": "962 SUMMIT AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 43958,
+    "Latitude": 44.9413233,
+    "Longitude": -93.1408869
+  },
+  {
+    "ADDRESS": "405 MARYLAND AVENUE WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 695,
+    "PAIDDATE": 43961,
+    "Latitude": 44.9774559,
+    "Longitude": -93.1177355
+  },
+  {
+    "ADDRESS": "697 BURR STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 446,
+    "PAIDDATE": 43962,
+    "Latitude": 44.9614638,
+    "Longitude": -93.0798841
+  },
+  {
+    "ADDRESS": "427 SNELLING AVENUE NORTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 22761,
+    "PAIDDATE": 43965,
+    "Latitude": 44.953499247336,
+    "Longitude": -93.167225183559
+  },
+  {
+    "ADDRESS": "716 DESOTO STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 153,
+    "PAIDDATE": 43965,
+    "Latitude": 44.9627772,
+    "Longitude": -93.0810028
+  },
+  {
+    "ADDRESS": "800 RICE STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 7756,
+    "PAIDDATE": 43965,
+    "Latitude": 44.965724,
+    "Longitude": -93.105816
+  },
+  {
+    "ADDRESS": "253 KELLOGG BOULEVARD WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 184877,
+    "PAIDDATE": 43999,
+    "Latitude": 44.9454064,
+    "Longitude": -93.1033501
+  },
+  {
+    "ADDRESS": "423 BELLOWS STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44000,
+    "Latitude": 44.9327986,
+    "Longitude": -93.0934128
+  },
+  {
+    "ADDRESS": "848 PAYNE AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 12390,
+    "PAIDDATE": 44005,
+    "Latitude": 44.9673435,
+    "Longitude": -93.0734633
+  },
+  {
+    "ADDRESS": "686 BURR STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 162,
+    "PAIDDATE": 44026,
+    "Latitude": 44.9828151,
+    "Longitude": -93.0798835
+  },
+  {
+    "ADDRESS": "85 LIVINGSTON AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 14667,
+    "PAIDDATE": 44027,
+    "Latitude": 44.9411618,
+    "Longitude": -93.086312
+  },
+  {
+    "ADDRESS": "55 LIVINGSTON AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 48695,
+    "PAIDDATE": 44027,
+    "Latitude": 44.9415743,
+    "Longitude": -93.0866557
+  },
+  {
+    "ADDRESS": "495 DALE STREET NORTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 13044,
+    "PAIDDATE": 44042,
+    "Latitude": 44.955579882145,
+    "Longitude": -93.126429558029
+  },
+  {
+    "ADDRESS": "540 HOLLY AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44045,
+    "Latitude": 44.9433526,
+    "Longitude": -93.1228004
+  },
+  {
+    "ADDRESS": "401 MARYLAND AVENUE WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 695,
+    "PAIDDATE": 44048,
+    "Latitude": 44.977456,
+    "Longitude": -93.117631
+  },
+  {
+    "ADDRESS": "1180 LAUREL AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44061,
+    "Latitude": 44.9449324,
+    "Longitude": -93.1501056
+  },
+  {
+    "ADDRESS": "960 PORTLAND AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44075,
+    "Latitude": 44.9427887,
+    "Longitude": -93.1408484
+  },
+  {
+    "ADDRESS": "1263 AVON STREET NORTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44077,
+    "Latitude": 44.9719934,
+    "Longitude": -93.1334175
+  },
+  {
+    "ADDRESS": "460 WACOUTA STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 57219,
+    "PAIDDATE": 44091,
+    "Latitude": 44.9520691,
+    "Longitude": -93.0892573
+  },
+  {
+    "ADDRESS": "573 EUSTIS STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44091,
+    "Latitude": 44.9581927,
+    "Longitude": -93.2029904
+  },
+  {
+    "ADDRESS": "2127 MARSHALL AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 14973,
+    "PAIDDATE": 44094,
+    "Latitude": 44.9484555,
+    "Longitude": -93.1902371
+  },
+  {
+    "ADDRESS": "1110 RAYMOND AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 2939,
+    "PAIDDATE": 44094,
+    "Latitude": 44.9754145,
+    "Longitude": -93.1928103
+  },
+  {
+    "ADDRESS": "2105 PRINCETON AVENUE UNIT ADU",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44102,
+    "Latitude": 44.936205,
+    "Longitude": -93.1892232
+  },
+  {
+    "ADDRESS": "725 MINNEHAHA AVENUE EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 642,
+    "PAIDDATE": 44108,
+    "Latitude": 44.963114,
+    "Longitude": -93.069605
+  },
+  {
+    "ADDRESS": "1904 MARSHALL AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44111,
+    "Latitude": 44.9483178,
+    "Longitude": -93.1810332
+  },
+  {
+    "ADDRESS": "1542 BURG AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44125,
+    "Latitude": 44.8952241,
+    "Longitude": -93.0061862
+  },
+  {
+    "ADDRESS": "1286 BREEN STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1121,
+    "PAIDDATE": 44129,
+    "Latitude": 44.9800787,
+    "Longitude": -93.026256
+  },
+  {
+    "ADDRESS": "1922 WILSON AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 2646,
+    "PAIDDATE": 44138,
+    "Latitude": 44.9540116,
+    "Longitude": -93.0191239
+  },
+  {
+    "ADDRESS": "2219 YOUNGMAN AVENUE UNIT A (FRO",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 420,
+    "PAIDDATE": 44147,
+    "Latitude": 44.9028608,
+    "Longitude": -93.1586859
+  },
+  {
+    "ADDRESS": "304 SNELLING AVENUE NORTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 18684,
+    "PAIDDATE": 44151,
+    "Latitude": 44.950315299522,
+    "Longitude": -93.166907822643
+  },
+  {
+    "ADDRESS": "876 GOODRICH AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44165,
+    "Latitude": 44.9377269,
+    "Longitude": -93.1371862
+  },
+  {
+    "ADDRESS": "1586 BEECH STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1062,
+    "PAIDDATE": 44166,
+    "Latitude": 44.9621363,
+    "Longitude": -93.033414
+  },
+  {
+    "ADDRESS": "1271 BURR STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 464,
+    "PAIDDATE": 44166,
+    "Latitude": 44.979558,
+    "Longitude": -93.0799973
+  },
+  {
+    "ADDRESS": "421 RIVOLI DRIVE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 815,
+    "PAIDDATE": 44178,
+    "Latitude": 44.9620425,
+    "Longitude": -93.0830741
+  },
+  {
+    "ADDRESS": "2383 UNIVERSITY AVENUE WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 70214,
+    "PAIDDATE": 44194,
+    "Latitude": 44.9638903,
+    "Longitude": -93.1972424
+  },
+  {
+    "ADDRESS": "397 MARYLAND AVENUE WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 695,
+    "PAIDDATE": 44203,
+    "Latitude": 44.9774561,
+    "Longitude": -93.1171841
+  },
+  {
+    "ADDRESS": "337 7TH STREET WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 17200,
+    "PAIDDATE": 44208,
+    "Latitude": 44.9406558,
+    "Longitude": -93.1086059
+  },
+  {
+    "ADDRESS": "1845 UNIVERSITY AVENUE WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 78417,
+    "PAIDDATE": 44210,
+    "Latitude": 44.9562294,
+    "Longitude": -93.1780538
+  },
+  {
+    "ADDRESS": "1428 7TH STREET EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 4316,
+    "PAIDDATE": 44224,
+    "Latitude": 44.96663,
+    "Longitude": -93.0401315
+  },
+  {
+    "ADDRESS": "698 MARYLAND AVENUE WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44249,
+    "Latitude": 44.9772911,
+    "Longitude": -93.1296887
+  },
+  {
+    "ADDRESS": "2424 TERRITORIAL ROAD",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 58912,
+    "PAIDDATE": 44251,
+    "Latitude": 44.9658224,
+    "Longitude": -93.1993762
+  },
+  {
+    "ADDRESS": "1345 OSCEOLA AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44255,
+    "Latitude": 44.9362994,
+    "Longitude": -93.157236
+  },
+  {
+    "ADDRESS": "1381 JEFFERSON AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44270,
+    "Latitude": 44.9306787,
+    "Longitude": -93.1588006
+  },
+  {
+    "ADDRESS": "824 LEXINGTON PARKWAY SOUTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44270,
+    "Latitude": 44.9169604,
+    "Longitude": -93.1478485
+  },
+  {
+    "ADDRESS": "930 MOUND STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44280,
+    "Latitude": 44.9478154,
+    "Longitude": -93.0603985
+  },
+  {
+    "ADDRESS": "240 BELVIDERE STREET EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 864,
+    "PAIDDATE": 44283,
+    "Latitude": 44.9220855,
+    "Longitude": -93.0756788
+  },
+  {
+    "ADDRESS": "2227 UNIVERSITY AVENUE WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 47700,
+    "PAIDDATE": 44285,
+    "Latitude": 44.9622547,
+    "Longitude": -93.191666
+  },
+  {
+    "ADDRESS": "286 AVON STREET NORTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 194,
+    "PAIDDATE": 44293,
+    "Latitude": 44.9889059,
+    "Longitude": -93.1333897
+  },
+  {
+    "ADDRESS": "448 LEXINGTON PARKWAY NORTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 3332,
+    "PAIDDATE": 44304,
+    "Latitude": 44.9487103,
+    "Longitude": -93.1467408
+  },
+  {
+    "ADDRESS": "1498 SUMMIT AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44305,
+    "Latitude": 44.9417162,
+    "Longitude": -93.1634591
+  },
+  {
+    "ADDRESS": "300 RYAN AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44305,
+    "Latitude": 44.9398624,
+    "Longitude": -93.1034544
+  },
+  {
+    "ADDRESS": "1171 RANKIN STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 833,
+    "PAIDDATE": 44306,
+    "Latitude": 44.9053056,
+    "Longitude": -93.15851
+  },
+  {
+    "ADDRESS": "1561 CASE AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 855,
+    "PAIDDATE": 44307,
+    "Latitude": 44.9703897,
+    "Longitude": -93.0349684
+  },
+  {
+    "ADDRESS": "971 HAMMER AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1017,
+    "PAIDDATE": 44307,
+    "Latitude": 44.9708375,
+    "Longitude": -93.0342815
+  },
+  {
+    "ADDRESS": "1057 LOMBARD AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44311,
+    "Latitude": 44.9333656,
+    "Longitude": -93.1448622
+  },
+  {
+    "ADDRESS": "310 BURLINGTON ROAD",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44314,
+    "Latitude": 44.92977,
+    "Longitude": -93.016428
+  },
+  {
+    "ADDRESS": "213 MOUNT HOPE DRIVE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 884,
+    "PAIDDATE": 44314,
+    "Latitude": 44.9278832,
+    "Longitude": -93.076957
+  },
+  {
+    "ADDRESS": "274 LAFOND AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 545,
+    "PAIDDATE": 44321,
+    "Latitude": 44.9603376,
+    "Longitude": -93.1117709
+  },
+  {
+    "ADDRESS": "1855 SUBURBAN AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 11752.33,
+    "PAIDDATE": 44326,
+    "Latitude": 44.9497562,
+    "Longitude": -93.0226581
+  },
+  {
+    "ADDRESS": "801 BARGE CHANNEL ROAD",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1236,
+    "PAIDDATE": 44333,
+    "Latitude": 44.9214308,
+    "Longitude": -93.0575948
+  },
+  {
+    "ADDRESS": "625 ARLINGTON AVENUE EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1125,
+    "PAIDDATE": 44340,
+    "Latitude": 44.9849383,
+    "Longitude": -93.0742906
+  },
+  {
+    "ADDRESS": "106 DOUGLAS STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 85,
+    "PAIDDATE": 44350,
+    "Latitude": 44.9383075,
+    "Longitude": -93.1108257
+  },
+  {
+    "ADDRESS": "590 REANEY AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44388,
+    "Latitude": 44.9638101,
+    "Longitude": -93.074518
+  },
+  {
+    "ADDRESS": "290 MISSISSIPPI RIVER BOULEVARD SOUTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44398,
+    "Latitude": 44.9467197,
+    "Longitude": -93.1988778
+  },
+  {
+    "ADDRESS": "2132 GRAND AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 2400,
+    "PAIDDATE": 44410,
+    "Latitude": 44.9398323,
+    "Longitude": -93.1905831
+  },
+  {
+    "ADDRESS": "1588 SAUNDERS AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44425,
+    "Latitude": 44.9142573,
+    "Longitude": -93.1681374
+  },
+  {
+    "ADDRESS": "594 SELBY AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 24084,
+    "PAIDDATE": 44426,
+    "Latitude": 44.9462143,
+    "Longitude": -93.1254742
+  },
+  {
+    "ADDRESS": "1190 BEECH STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44434,
+    "Latitude": 44.962099,
+    "Longitude": -93.0502089
+  },
+  {
+    "ADDRESS": "2385 COMMONWEALTH AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44456,
+    "Latitude": 44.9780833,
+    "Longitude": -93.1991756
+  },
+  {
+    "ADDRESS": "1509 MARSHALL AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 7288,
+    "PAIDDATE": 44462,
+    "Latitude": 44.948707,
+    "Longitude": -93.1637336
+  },
+  {
+    "ADDRESS": "881 WESTERN AVENUE NORTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1458,
+    "PAIDDATE": 44466,
+    "Latitude": 44.9678352,
+    "Longitude": -93.1162426
+  },
+  {
+    "ADDRESS": "875 WESTERN AVENUE NORTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1458,
+    "PAIDDATE": 44467,
+    "Latitude": 44.9676923,
+    "Longitude": -93.1162429
+  },
+  {
+    "ADDRESS": "1600 GRAND AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 70,
+    "PAIDDATE": 44472,
+    "Latitude": 44.9376942,
+    "Longitude": -93.1692917
+  },
+  {
+    "ADDRESS": "2105 MARSHALL AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 5920,
+    "PAIDDATE": 44474,
+    "Latitude": 44.9484584,
+    "Longitude": -93.1892084
+  },
+  {
+    "ADDRESS": "250 FINN STREET NORTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 10994,
+    "PAIDDATE": 44474,
+    "Latitude": 44.9487515,
+    "Longitude": -93.1897823
+  },
+  {
+    "ADDRESS": "1167 JENKS AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44482,
+    "Latitude": 44.9713308,
+    "Longitude": -93.0517986
+  },
+  {
+    "ADDRESS": "565 BURLINGTON ROAD",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44487,
+    "Latitude": 44.9229456,
+    "Longitude": -93.0136799
+  },
+  {
+    "ADDRESS": "2141 KNAPP STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44490,
+    "Latitude": 44.9798377,
+    "Longitude": -93.1911058
+  },
+  {
+    "ADDRESS": "188 MONTROSE PLACE UNIT ADU 1",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44498,
+    "Latitude": 44.9470326,
+    "Longitude": -93.1959128
+  },
+  {
+    "ADDRESS": "1179 7TH STREET EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 3952,
+    "PAIDDATE": 44500,
+    "Latitude": 44.9667822,
+    "Longitude": -93.0498572
+  },
+  {
+    "ADDRESS": "749 MOUNT CURVE BOULEVARD",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 3981,
+    "PAIDDATE": 44515,
+    "Latitude": 44.9325066,
+    "Longitude": -93.1936018
+  },
+  {
+    "ADDRESS": "2440 EDGCUMBE ROAD",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44539,
+    "Latitude": 44.9061701,
+    "Longitude": -93.1770306
+  },
+  {
+    "ADDRESS": "1381 MCKINLEY STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44541,
+    "Latitude": 44.9834585,
+    "Longitude": -93.1605564
+  },
+  {
+    "ADDRESS": "915 ALBION AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 55638,
+    "PAIDDATE": 44543,
+    "Latitude": 44.9148538,
+    "Longitude": -93.1475025
+  },
+  {
+    "ADDRESS": "2061 MARSHALL AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 3681,
+    "PAIDDATE": 44545,
+    "Latitude": 44.9484628,
+    "Longitude": -93.1875944
+  },
+  {
+    "ADDRESS": "520 PAYNE AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 7866,
+    "PAIDDATE": 44563,
+    "Latitude": 44.9575645,
+    "Longitude": -93.0782345
+  },
+  {
+    "ADDRESS": "1126 LINCOLN AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44572,
+    "Latitude": 44.9388394,
+    "Longitude": -93.1477617
+  },
+  {
+    "ADDRESS": "1770 GRAND AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 18240,
+    "PAIDDATE": 44578,
+    "Latitude": 44.9398842,
+    "Longitude": -93.1755217
+  },
+  {
+    "ADDRESS": "1933 STREET ANTHONY AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44614,
+    "Latitude": 44.9534968,
+    "Longitude": -93.1805897
+  },
+  {
+    "ADDRESS": "1452 RAYMOND AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44635,
+    "Latitude": 44.9850749,
+    "Longitude": -93.1884315
+  },
+  {
+    "ADDRESS": "1515 MARSHALL AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1444.5,
+    "PAIDDATE": 44647,
+    "Latitude": 44.9487372,
+    "Longitude": -93.1643057
+  },
+  {
+    "ADDRESS": "1525 MARSHALL AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1444.5,
+    "PAIDDATE": 44647,
+    "Latitude": 44.9487393,
+    "Longitude": -93.1645513
+  },
+  {
+    "ADDRESS": "1590 BURG AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44670,
+    "Latitude": 44.8946134,
+    "Longitude": -93.005869
+  },
+  {
+    "ADDRESS": "470 LEXINGTON PARKWAY SOUTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 12843,
+    "PAIDDATE": 44697,
+    "Latitude": 44.927438,
+    "Longitude": -93.1464857
+  },
+  {
+    "ADDRESS": "2320 PRISCILLA STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44703,
+    "Latitude": 44.97513,
+    "Longitude": -93.1894957
+  },
+  {
+    "ADDRESS": "2322 PRISCILLA STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44703,
+    "Latitude": 44.9751446,
+    "Longitude": -93.189511
+  },
+  {
+    "ADDRESS": "2324 PRISCILLA STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44703,
+    "Latitude": 44.9751591,
+    "Longitude": -93.1895264
+  },
+  {
+    "ADDRESS": "349 WOODLAWN AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44704,
+    "Latitude": 44.9310747,
+    "Longitude": -93.1962757
+  },
+  {
+    "ADDRESS": "1524 LINCOLN AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44716,
+    "Latitude": 44.9389005,
+    "Longitude": -93.1647353
+  },
+  {
+    "ADDRESS": "465 CHATSWORTH STREET SOUTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1140,
+    "PAIDDATE": 44727,
+    "Latitude": 44.9272382,
+    "Longitude": -93.1416223
+  },
+  {
+    "ADDRESS": "925 WILSON AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 900,
+    "PAIDDATE": 44747,
+    "Latitude": 44.9541185,
+    "Longitude": -93.0614944
+  },
+  {
+    "ADDRESS": "1222 UNIVERSITY AVENUE WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 19573,
+    "PAIDDATE": 44763,
+    "Latitude": 44.9556319,
+    "Longitude": -93.1519526
+  },
+  {
+    "ADDRESS": "2100 FAIRMOUNT AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44777,
+    "Latitude": 44.9369464,
+    "Longitude": -93.1890732
+  },
+  {
+    "ADDRESS": "777 ASHLAND AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44782,
+    "Latitude": 44.9441328,
+    "Longitude": -93.1332332
+  },
+  {
+    "ADDRESS": "695 GRAND AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 64800,
+    "PAIDDATE": 44790,
+    "Latitude": 44.939989,
+    "Longitude": -93.128929
+  },
+  {
+    "ADDRESS": "2212 STEWART AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 2900,
+    "PAIDDATE": 44796,
+    "Latitude": 44.9036367,
+    "Longitude": -93.1587144
+  },
+  {
+    "ADDRESS": "697 BURR STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 900,
+    "PAIDDATE": 44809,
+    "Latitude": 44.9614638,
+    "Longitude": -93.0798841
+  },
+  {
+    "ADDRESS": "617 STRYKER AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 14884,
+    "PAIDDATE": 44817,
+    "Latitude": 44.9269347,
+    "Longitude": -93.0881652
+  },
+  {
+    "ADDRESS": "176 ROBERT STREET SOUTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 51341,
+    "PAIDDATE": 44840,
+    "Latitude": 44.9390528,
+    "Longitude": -93.0830209
+  },
+  {
+    "ADDRESS": "1259 DESOTO STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 563,
+    "PAIDDATE": 44843,
+    "Latitude": 44.978928,
+    "Longitude": -93.0812723
+  },
+  {
+    "ADDRESS": "842 RICE STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 5400,
+    "PAIDDATE": 44859,
+    "Latitude": 44.9670768,
+    "Longitude": -93.1058268
+  },
+  {
+    "ADDRESS": "2180 HIGHWOOD AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44872,
+    "Latitude": 44.912344855875,
+    "Longitude": -93.010072960633
+  },
+  {
+    "ADDRESS": "2150 GRAND AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44893,
+    "Latitude": 44.9398624,
+    "Longitude": -93.1912305
+  },
+  {
+    "ADDRESS": "180 MILTON STREET NORTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 392,
+    "PAIDDATE": 44906,
+    "Latitude": 44.946836,
+    "Longitude": -93.1388778
+  },
+  {
+    "ADDRESS": "2336 BOURNE AVENUE  ADU",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44930,
+    "Latitude": 44.9801905,
+    "Longitude": -93.1991083
+  },
+  {
+    "ADDRESS": "731 MARSHALL AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 44951,
+    "Latitude": 44.9487267,
+    "Longitude": -93.1309992
+  },
+  {
+    "ADDRESS": "150 WATER STREET WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 25691,
+    "PAIDDATE": 44966,
+    "Latitude": 44.937339,
+    "Longitude": -93.0938846
+  },
+  {
+    "ADDRESS": "411 LEXINGTON PARKWAY NORTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 71578,
+    "PAIDDATE": 44997,
+    "Latitude": 44.9538839,
+    "Longitude": -93.1473217
+  },
+  {
+    "ADDRESS": "1355 CLEVELAND AVENUE SOUTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45008,
+    "Latitude": 44.9273045,
+    "Longitude": -93.1873768
+  },
+  {
+    "ADDRESS": "1060 LOMBARD AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45019,
+    "Latitude": 44.9332015,
+    "Longitude": -93.1450139
+  },
+  {
+    "ADDRESS": "2170 HIGHWOOD AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45020,
+    "Latitude": 44.912512499612,
+    "Longitude": -93.010351101619
+  },
+  {
+    "ADDRESS": "1518 BURG AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45020,
+    "Latitude": 44.8955343,
+    "Longitude": -93.0063427
+  },
+  {
+    "ADDRESS": "1307 RANDOLPH AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45025,
+    "Latitude": 44.9270411,
+    "Longitude": -93.155429
+  },
+  {
+    "ADDRESS": "1298 ELEANOR AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45025,
+    "Latitude": 44.9205335,
+    "Longitude": -93.1551428
+  },
+  {
+    "ADDRESS": "540 BROADWAY STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 15135,
+    "PAIDDATE": 45028,
+    "Latitude": 44.9547579,
+    "Longitude": -93.089422
+  },
+  {
+    "ADDRESS": "115 PLATO BOULEVARD WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 12332,
+    "PAIDDATE": 45076,
+    "Latitude": 44.936255,
+    "Longitude": -93.093713
+  },
+  {
+    "ADDRESS": "210 AMHERST STREET UNIT ADU",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45104,
+    "Latitude": 44.9360991,
+    "Longitude": -93.1723919
+  },
+  {
+    "ADDRESS": "1509 7TH STREET EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 150,
+    "PAIDDATE": 45125,
+    "Latitude": 44.9667933,
+    "Longitude": -93.0368329
+  },
+  {
+    "ADDRESS": "1180 PROSPERITY AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 9818,
+    "PAIDDATE": 45151,
+    "Latitude": 44.9771945,
+    "Longitude": -93.0420045
+  },
+  {
+    "ADDRESS": "1222 BERKELEY AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45186,
+    "Latitude": 44.9332099,
+    "Longitude": -93.1523717
+  },
+  {
+    "ADDRESS": "884 DESOTO STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 900,
+    "PAIDDATE": 45187,
+    "Latitude": 44.9679873,
+    "Longitude": -93.0810575
+  },
+  {
+    "ADDRESS": "2319 HIGHLAND WAY",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 101,
+    "PAIDDATE": 45196,
+    "Latitude": 44.9198407,
+    "Longitude": -93.1974323
+  },
+  {
+    "ADDRESS": "1777 HUBBARD AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 600,
+    "PAIDDATE": 45207,
+    "Latitude": 44.965474,
+    "Longitude": -93.1754767
+  },
+  {
+    "ADDRESS": "1941 ROME AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45209,
+    "Latitude": 44.9135193,
+    "Longitude": -93.1822209
+  },
+  {
+    "ADDRESS": "1315 DALE STREET NORTH UNIT ADU A",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45209,
+    "Latitude": 44.9831127,
+    "Longitude": -93.1263596
+  },
+  {
+    "ADDRESS": "629 MINNEHAHA AVENUE EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1643,
+    "PAIDDATE": 45211,
+    "Latitude": 44.9630746,
+    "Longitude": -93.0746167
+  },
+  {
+    "ADDRESS": "624 REANEY AVENUE UNIT ADU",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45211,
+    "Latitude": 44.9638143,
+    "Longitude": -93.073991
+  },
+  {
+    "ADDRESS": "621 MINNEHAHA AVENUE EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1643,
+    "PAIDDATE": 45211,
+    "Latitude": 44.9630739,
+    "Longitude": -93.0747097
+  },
+  {
+    "ADDRESS": "114 EXETER PLACE UNIT ADU",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45215,
+    "Latitude": 44.944879,
+    "Longitude": -93.19384
+  },
+  {
+    "ADDRESS": "154 CLEVELAND AVENUE NORTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45217,
+    "Latitude": 44.9466193,
+    "Longitude": -93.1872389
+  },
+  {
+    "ADDRESS": "1041 FREMONT AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 585,
+    "PAIDDATE": 45257,
+    "Latitude": 44.9578069,
+    "Longitude": -93.0566263
+  },
+  {
+    "ADDRESS": "2122 SCHEFFER AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45258,
+    "Latitude": 44.921532,
+    "Longitude": -93.190099
+  },
+  {
+    "ADDRESS": "249 GEORGE STREET WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45260,
+    "Latitude": 44.92963241854,
+    "Longitude": -93.096146455699
+  },
+  {
+    "ADDRESS": "950 CARROLL AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 983,
+    "PAIDDATE": 45309,
+    "Latitude": 44.9500921,
+    "Longitude": -93.1403218
+  },
+  {
+    "ADDRESS": "1606 MARSHALL AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 30656,
+    "PAIDDATE": 45312,
+    "Latitude": 44.9481866,
+    "Longitude": -93.1684606
+  },
+  {
+    "ADDRESS": "1481 ELEANOR AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45313,
+    "Latitude": 44.9207204,
+    "Longitude": -93.1627954
+  },
+  {
+    "ADDRESS": "1439 ELEANOR AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45320,
+    "Latitude": 44.9207193,
+    "Longitude": -93.1610014
+  },
+  {
+    "ADDRESS": "2172 GOODRICH AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45343,
+    "Latitude": 44.9378394,
+    "Longitude": -93.1920729
+  },
+  {
+    "ADDRESS": "1509 7TH STREET EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 150,
+    "PAIDDATE": 45361,
+    "Latitude": 44.9667933,
+    "Longitude": -93.0368329
+  },
+  {
+    "ADDRESS": "100 CLEVELAND AVENUE NORTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45368,
+    "Latitude": 44.9444635,
+    "Longitude": -93.1872495
+  },
+  {
+    "ADDRESS": "1980 GRAND AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45410,
+    "Latitude": 44.9398949,
+    "Longitude": -93.1841205
+  },
+  {
+    "ADDRESS": "1515 CARROLL AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1823,
+    "PAIDDATE": 45441,
+    "Latitude": 44.9503606,
+    "Longitude": -93.1641798
+  },
+  {
+    "ADDRESS": "1884 AMES AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45446,
+    "Latitude": 44.97202,
+    "Longitude": -93.0218332
+  },
+  {
+    "ADDRESS": "2298 BREWSTER STREET UNIT ADU",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45448,
+    "Latitude": 44.97618,
+    "Longitude": -93.188905
+  },
+  {
+    "ADDRESS": "810 ATLANTIC STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 87,
+    "PAIDDATE": 45452,
+    "Latitude": 44.965745,
+    "Longitude": -93.048139
+  },
+  {
+    "ADDRESS": "1968 GRAND AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45455,
+    "Latitude": 44.9398815,
+    "Longitude": -93.1836528
+  },
+  {
+    "ADDRESS": "116 JESSAMINE AVENUE EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1125,
+    "PAIDDATE": 45463,
+    "Latitude": 44.9745807,
+    "Longitude": -93.0939756
+  },
+  {
+    "ADDRESS": "69 OTIS LANE  ADU",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45463,
+    "Latitude": 44.9437529,
+    "Longitude": -93.197314
+  },
+  {
+    "ADDRESS": "470 ROSE AVENUE EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1125,
+    "PAIDDATE": 45477,
+    "Latitude": 44.9763894,
+    "Longitude": -93.0807278
+  },
+  {
+    "ADDRESS": "1467 CHELMSFORD STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45490,
+    "Latitude": 44.9854209,
+    "Longitude": -93.1917478
+  },
+  {
+    "ADDRESS": "386 WABASHA STREET NORTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 60000,
+    "PAIDDATE": 45490,
+    "Latitude": 44.9462819,
+    "Longitude": -93.0948907
+  },
+  {
+    "ADDRESS": "1532 LINCOLN AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45508,
+    "Latitude": 44.9389015,
+    "Longitude": -93.164962
+  },
+  {
+    "ADDRESS": "1600 7TH STREET WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 5600,
+    "PAIDDATE": 45509,
+    "Latitude": 44.916959,
+    "Longitude": -93.142443
+  },
+  {
+    "ADDRESS": "2186 DUDLEY AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45524,
+    "Latitude": 44.9871878,
+    "Longitude": -93.1906689
+  },
+  {
+    "ADDRESS": "796 STEWART AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1800,
+    "PAIDDATE": 45550,
+    "Latitude": 44.9207711,
+    "Longitude": -93.1311652
+  },
+  {
+    "ADDRESS": "457 OHIO STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1019,
+    "PAIDDATE": 45552,
+    "Latitude": 44.933955,
+    "Longitude": -93.0958053
+  },
+  {
+    "ADDRESS": "132 YORK AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1125,
+    "PAIDDATE": 45557,
+    "Latitude": 44.9680484,
+    "Longitude": -93.0955927
+  },
+  {
+    "ADDRESS": "679 HOWELL STREET SOUTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45557,
+    "Latitude": 44.9101809,
+    "Longitude": -93.181079
+  },
+  {
+    "ADDRESS": "1351 ARCADE STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 750,
+    "PAIDDATE": 45558,
+    "Latitude": 44.9822346,
+    "Longitude": -93.0662601
+  },
+  {
+    "ADDRESS": "2062 COMO AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 2400,
+    "PAIDDATE": 45559,
+    "Latitude": 44.9769632,
+    "Longitude": -93.1874586
+  },
+  {
+    "ADDRESS": "228 CURTICE STREET EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45560,
+    "Latitude": 44.9229894,
+    "Longitude": -93.0760096
+  },
+  {
+    "ADDRESS": "958 CROMWELL AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45567,
+    "Latitude": 44.97007,
+    "Longitude": -93.2007731
+  },
+  {
+    "ADDRESS": "84 CLEVELAND AVENUE NORTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45581,
+    "Latitude": 44.9438547,
+    "Longitude": -93.1872531
+  },
+  {
+    "ADDRESS": "236 WATER STREET WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1628,
+    "PAIDDATE": 45586,
+    "Latitude": 44.9321174,
+    "Longitude": -93.1018204
+  },
+  {
+    "ADDRESS": "2045 LAUREL AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 150,
+    "PAIDDATE": 45587,
+    "Latitude": 44.9452285,
+    "Longitude": -93.1863095
+  },
+  {
+    "ADDRESS": "892 7TH STREET EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 11471,
+    "PAIDDATE": 45610,
+    "Latitude": 44.9631462,
+    "Longitude": -93.0632009
+  },
+  {
+    "ADDRESS": "92 CLEVELAND AVENUE NORTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45616,
+    "Latitude": 44.9442385,
+    "Longitude": -93.1872505
+  },
+  {
+    "ADDRESS": "1780 IGLEHART AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45617,
+    "Latitude": 44.9493749,
+    "Longitude": -93.1754967
+  },
+  {
+    "ADDRESS": "2134 LOWER STREET DENNIS ROAD",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45642,
+    "Latitude": 44.9066164,
+    "Longitude": -93.164583
+  },
+  {
+    "ADDRESS": "2026 LINCOLN AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45645,
+    "Latitude": 44.9389595,
+    "Longitude": -93.1859242
+  },
+  {
+    "ADDRESS": "234 CLERMONT STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45658,
+    "Latitude": 44.9482503,
+    "Longitude": -93.0588074
+  },
+  {
+    "ADDRESS": "1319 MINNEHAHA AVENUE EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45662,
+    "Latitude": 44.9631913,
+    "Longitude": -93.0448438
+  },
+  {
+    "ADDRESS": "282 MISSISSIPPI RIVER BOULEVARD SOUTH",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45666,
+    "Latitude": 44.9468,
+    "Longitude": -93.1988778
+  },
+  {
+    "ADDRESS": "1479 ELEANOR AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45706,
+    "Latitude": 44.9207204,
+    "Longitude": -93.1627267
+  },
+  {
+    "ADDRESS": "2039 ASHLAND AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45732,
+    "Latitude": 44.9440804,
+    "Longitude": -93.1862178
+  },
+  {
+    "ADDRESS": "2043 ASHLAND AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45732,
+    "Latitude": 44.9440807,
+    "Longitude": -93.1862829
+  },
+  {
+    "ADDRESS": "894 COTTAGE AVENUE EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45748,
+    "Latitude": 44.9828504,
+    "Longitude": -93.063144
+  },
+  {
+    "ADDRESS": "1106 HAWTHORNE AVENUE EAST UNIT 1",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45754,
+    "Latitude": 44.9794867,
+    "Longitude": -93.0109778
+  },
+  {
+    "ADDRESS": "1324 7TH STREET WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1709,
+    "PAIDDATE": 45757,
+    "Latitude": 44.9213226,
+    "Longitude": -93.1360118
+  },
+  {
+    "ADDRESS": "1054 MANVEL STREET",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45760,
+    "Latitude": 44.9723866,
+    "Longitude": -93.2000373
+  },
+  {
+    "ADDRESS": "611 MAGNOLIA AVENUE EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 416,
+    "PAIDDATE": 45782,
+    "Latitude": 44.973883989848,
+    "Longitude": -93.074337599776
+  },
+  {
+    "ADDRESS": "2065 PRINCETON AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45783,
+    "Latitude": 44.9362077,
+    "Longitude": -93.1877067
+  },
+  {
+    "ADDRESS": "25 GEORGE STREET EAST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 218,
+    "PAIDDATE": 45797,
+    "Latitude": 44.929756,
+    "Longitude": -93.0841617
+  },
+  {
+    "ADDRESS": "1995 PORTLAND AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45827,
+    "Latitude": 44.9430138,
+    "Longitude": -93.1847895
+  },
+  {
+    "ADDRESS": "2393 YOUNGMAN AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1620,
+    "PAIDDATE": 45833,
+    "Latitude": 44.9002169,
+    "Longitude": -93.1643569
+  },
+  {
+    "ADDRESS": "931 NEVADA AVENUE WEST",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 1200,
+    "PAIDDATE": 45859,
+    "Latitude": 44.9856538,
+    "Longitude": -93.1396132
+  },
+  {
+    "ADDRESS": "737 EDMUND AVENUE",
+    "City": "St Paul",
+    "State": "MN",
+    "FEEAMOUNT": 2400,
+    "PAIDDATE": 45860,
+    "Latitude": 44.958517,
+    "Longitude": -93.1311781
+  }
+];
+
+    // Safe formatting to prevent javascript crashes if data is null/invalid
+    const formatMoney = (amount) => {
+        if (amount === null || amount === undefined || isNaN(amount)) return '$0.00';
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+    };
+
+    try {
+        const map = L.map('map', { zoomControl: false }).setView([44.9537, -93.0900], 12);
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+        const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+            subdomains: 'abcd', maxZoom: 20
+        });
+
+        const lightLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+            subdomains: 'abcd', maxZoom: 20
+        });
+
+        const satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri',
+            maxZoom: 18
+        });
+
+        darkLayer.addTo(map);
+
+        const parkIcon = L.divIcon({
+            className: 'custom-marker',
+            html: `<div style="background-color: #4ade80; width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 10px rgba(74, 222, 128, 0.8);"></div>`,
+            iconSize: [14, 14], iconAnchor: [7, 7], popupAnchor: [0, -10]
+        });
+
+        const fundingIcon = L.divIcon({
+            className: 'custom-marker funding',
+            html: `<div style="background-color: #f59e0b; width: 10px; height: 10px; border-radius: 50%; border: 1px solid #fff; box-shadow: 0 0 6px rgba(245, 158, 11, 0.8);"></div>`,
+            iconSize: [10, 10], iconAnchor: [5, 5], popupAnchor: [0, -8]
+        });
+
+        const fundingMarkers = [];
+        const seenCoords = {};
+        
+        fundingData.forEach(item => {
+            if (item.Latitude && item.Longitude) {
+                let lat = item.Latitude;
+                let lon = item.Longitude;
+                const coordKey = `${lat},${lon}`;
+                
+                // If coordinate is identical to a previous one, apply a small offset so they don't stack visually
+                if (seenCoords[coordKey]) {
+                    const count = seenCoords[coordKey];
+                    const angle = count * (Math.PI / 4); // Spread them in a circle
+                    const radius = 0.00015; // Roughly 15 meters
+                    lat += Math.sin(angle) * radius;
+                    lon += Math.cos(angle) * radius * 1.4; // Multiply lon by 1.4 to account for latitude distortion
+                    seenCoords[coordKey]++;
+                } else {
+                    seenCoords[coordKey] = 1;
+                }
+                
+                const marker = L.marker([lat, lon], { icon: fundingIcon });
+                const popupContent = `<h3 class="popup-title" style="color: #f59e0b;">Funding Source</h3><p class="popup-content">${item.ADDRESS || ''}, ${item.City || ''}</p><p class="popup-content" style="margin-top: 8px;"><strong>Fee Amount:</strong> ${formatMoney(item['FEEAMOUNT'])}</p>`;
+                marker.bindPopup(popupContent);
+                fundingMarkers.push(marker);
+                
+                // Update item with the fuzzed coordinates so the click/flyTo listener goes to the right spot
+                item.mapLat = lat;
+                item.mapLon = lon;
+                item.marker = marker;
+            }
+        });
+        
+        const parkMarkers = [];
+        const parkListEl = document.getElementById('park-list');
+        let currentParkCircle = null;
+        let searchMarker = null;
+
+        const processLocation = (lat, lon, displayName) => {
+            map.flyTo([lat, lon], 15, { duration: 1.5 });
+            
+            if (searchMarker) map.removeLayer(searchMarker);
+            if (currentParkCircle) map.removeLayer(currentParkCircle);
+            
+            searchMarker = L.marker([lat, lon], {
+                icon: L.divIcon({
+                    className: 'custom-marker search',
+                    html: `<div style="background-color: #3b82f6; width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 10px rgba(59, 130, 246, 0.8);"></div>`,
+                    iconSize: [14, 14], iconAnchor: [7, 7]
+                })
+            }).addTo(map);
+
+            currentParkCircle = L.circle([lat, lon], {
+                radius: 804.672,
+                color: '#3b82f6',
+                weight: 2,
+                fillOpacity: 0.1
+            }).addTo(map);
+            
+            const nearbyFunding = fundingData.filter(item => {
+                if (!item.Latitude || !item.Longitude) return false;
+                const R = 3958.8;
+                const dLat = (item.Latitude - lat) * Math.PI / 180;
+                const dLon = (item.Longitude - lon) * Math.PI / 180;
+                const a = 0.5 - Math.cos(dLat)/2 + Math.cos(lat * Math.PI / 180) * Math.cos(item.Latitude * Math.PI / 180) * (1 - Math.cos(dLon))/2;
+                return (R * 2 * Math.asin(Math.sqrt(a))) <= 0.5;
+            });
+
+            // Remove any existing search card
+            const existingSearchCard = document.getElementById('search-result-card');
+            if (existingSearchCard) existingSearchCard.remove();
+
+            // Create new search card at the top
+            const searchCard = document.createElement('div');
+            searchCard.id = 'search-result-card';
+            searchCard.className = 'park-card';
+            searchCard.style.borderColor = '#3b82f6';
+            
+            const totalFees = nearbyFunding.reduce((sum, f) => sum + (f.FEEAMOUNT || 0), 0);
+            let html = `<div class="park-name" style="color: #3b82f6;">Search Result</div>
+                <div class="park-address">${displayName}</div>
+                <div class="funding-readout" style="font-size: 0.85rem; color: #ccc;">
+                    <div style="font-weight: 600; margin-bottom: 8px; color: #3b82f6; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
+                        <span>Contributing Addresses (&le; 0.5 miles):</span>
+                        <span style="color: #f59e0b; background: rgba(245, 158, 11, 0.15); padding: 4px 8px; border-radius: 12px; font-size: 0.8rem;">Total: ${formatMoney(totalFees)}</span>
+                    </div>
+                </div>`;
+                
+            searchCard.innerHTML = html;
+            
+            const readout = searchCard.querySelector('.funding-readout');
+            if (nearbyFunding.length > 0) {
+                const listUl = document.createElement('ul');
+                listUl.style.cssText = 'list-style-type: none; padding: 0;';
+                
+                nearbyFunding.forEach(f => {
+                    const li = document.createElement('li');
+                    li.className = 'funding-li';
+                    li.innerHTML = `<span>${f.ADDRESS}</span> <span style="color: #f59e0b;">${formatMoney(f.FEEAMOUNT)}</span>`;
+                    li.addEventListener('click', (ev) => {
+                        ev.stopPropagation();
+                        document.querySelectorAll('.funding-li').forEach(el => el.classList.remove('active'));
+                        fundingData.forEach(item => {
+                            if(item.marker) {
+                                item.marker.setIcon(fundingIcon);
+                                item.marker.setZIndexOffset(0);
+                            }
+                        });
+                        li.classList.add('active');
+                        if (f.marker) {
+                            f.marker.setIcon(L.divIcon({
+                                className: 'custom-marker funding highlight',
+                                html: '<div style="background-color: #ef4444; width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff;"></div>',
+                                iconSize: [14, 14], iconAnchor: [7, 7], popupAnchor: [0, -10]
+                            }));
+                            f.marker.setZIndexOffset(1000);
+                            map.flyTo([f.mapLat || f.Latitude, f.mapLon || f.Longitude], 17, { duration: 1.0 });
+                            f.marker.openPopup();
+                        }
+                        if (window.innerWidth <= 768) {
+                            document.getElementById('sidebar').classList.remove('open');
+                        }
+                    });
+                    listUl.appendChild(li);
+                });
+                readout.appendChild(listUl);
+            } else {
+                readout.innerHTML += `<div style="font-style: italic; color: #9ca3af; margin-top: 8px;">No contributing addresses found.</div>`;
+            }
+            
+            searchCard.addEventListener('click', () => {
+                map.flyTo([lat, lon], 15, { duration: 1.5 });
+                searchMarker.openPopup();
+                document.querySelectorAll('.park-card').forEach(c => c.style.borderColor = '');
+                searchCard.style.borderColor = '#3b82f6';
+            });
+            
+            parkListEl.insertBefore(searchCard, parkListEl.firstChild);
+            parkListEl.scrollTop = 0; // Scroll to top to ensure result is visible
+            
+            // Bind popup to marker
+            searchMarker.bindPopup(`<h3 class="popup-title" style="color: #3b82f6;">Search Result</h3><p class="popup-content">${displayName}</p>`).openPopup();
+            
+            document.querySelectorAll('.park-card').forEach(c => {
+                if(c !== searchCard) c.style.borderColor = '';
+                const ro = c.querySelector('.funding-readout');
+                if (ro && c !== searchCard) ro.style.display = 'none';
+            });
+        };
+
+        // Helper to extract short street address from Nominatim display_name
+        const shortAddress = (displayName) => {
+            const parts = displayName.split(',').map(p => p.trim());
+            // Check if first part is a house number (purely numeric)
+            if (parts.length >= 2 && /^\d+$/.test(parts[0])) {
+                return parts[0] + ' ' + parts[1]; // e.g. "2515 Wabash Avenue"
+            }
+            // First part is a business/place name, second is number, third is street
+            if (parts.length >= 3 && /^\d+$/.test(parts[1])) {
+                return parts[0] + ', ' + parts[1] + ' ' + parts[2];
+            }
+            // Fallback: return first two parts
+            return parts.slice(0, 2).join(', ');
+        };
+
+        // Search address logic
+        const addressInput = document.getElementById('address-input');
+        const addressSearchBtn = document.getElementById('address-search-btn');
+
+        addressSearchBtn.addEventListener('click', async () => {
+            const query = addressInput.value.trim();
+            if (!query) return;
+
+            addressSearchBtn.textContent = '...';
+            
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', St Paul, MN')}`);
+                const data = await response.json();
+                
+                if (data && data.length > 0) {
+                    const lat = parseFloat(data[0].lat);
+                    const lon = parseFloat(data[0].lon);
+                    processLocation(lat, lon, shortAddress(data[0].display_name));
+                } else {
+                    alert('Address not found. Please try again.');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Error searching for address.');
+            } finally {
+                addressSearchBtn.textContent = 'Search';
+            }
+        });
+
+        // Add Enter key support
+        addressInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') addressSearchBtn.click();
+        });
+
+        // Map click logic
+        map.on('click', async (e) => {
+            const lat = e.latlng.lat;
+            const lon = e.latlng.lng;
+            
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+                const data = await response.json();
+                const displayName = data && data.display_name ? shortAddress(data.display_name) : 'Map Click Location';
+                processLocation(lat, lon, displayName);
+            } catch (err) {
+                console.error(err);
+                processLocation(lat, lon, 'Map Click Location');
+            }
+        });
+
+        parkData.sort((a, b) => {
+            const nameA = (a.Park || '').toUpperCase();
+            const nameB = (b.Park || '').toUpperCase();
+            if (nameA < nameB) return -1;
+            if (nameA > nameB) return 1;
+            return 0;
+        });
+
+        parkData.forEach(park => {
+            if (park.Latitude && park.Longitude) {
+                const marker = L.marker([park.Latitude, park.Longitude], { icon: parkIcon });
+                const popupContent = `<h3 class="popup-title">${park.Park || 'Unknown'}</h3><p class="popup-content">${park.Address || ''}, ${park.City || ''}</p><p class="popup-content" style="margin-top: 8px;"><strong>Amount Used:</strong> ${formatMoney(park['Amount Used'])}</p>`;
+                marker.bindPopup(popupContent);
+                parkMarkers.push(marker);
+
+                const card = document.createElement('div');
+                card.className = 'park-card';
+                card.innerHTML = `<div class="park-name">${park.Park || 'Unknown'}</div><div class="park-address">${park.Address || ''}</div><div class="park-amount">${formatMoney(park['Amount Used'])}</div><div class="funding-readout" style="display:none; font-size: 0.85rem; color: #ccc;"></div>`;
+                card.addEventListener('click', () => {
+                    map.flyTo([park.Latitude, park.Longitude], 15, { duration: 1.5 });
+                    marker.openPopup();
+                    
+                    if (currentParkCircle) {
+                        map.removeLayer(currentParkCircle);
+                    }
+                    if (searchMarker) {
+                        map.removeLayer(searchMarker);
+                    }
+                    currentParkCircle = L.circle([park.Latitude, park.Longitude], {
+                        radius: 804.672, // 0.5 miles in meters
+                        color: 'var(--accent)',
+                        weight: 2,
+                        fillOpacity: 0.1
+                    }).addTo(map);
+                    
+                    document.querySelectorAll('.funding-readout').forEach(r => r.style.display = 'none');
+                    document.querySelectorAll('.park-card').forEach(c => c.style.borderColor = '');
+                    card.style.borderColor = 'var(--accent)';
+                    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+                    const readout = card.querySelector('.funding-readout');
+                    const nearbyFunding = fundingData.filter(item => {
+                        if (!item.Latitude || !item.Longitude) return false;
+                        const R = 3958.8; // Radius of the earth in miles
+                        const dLat = (item.Latitude - park.Latitude) * Math.PI / 180;
+                        const dLon = (item.Longitude - park.Longitude) * Math.PI / 180;
+                        const a = 0.5 - Math.cos(dLat)/2 + Math.cos(park.Latitude * Math.PI / 180) * Math.cos(item.Latitude * Math.PI / 180) * (1 - Math.cos(dLon))/2;
+                        return (R * 2 * Math.asin(Math.sqrt(a))) <= 0.5;
+                    });
+                    
+                    if (nearbyFunding.length > 0) {
+                        const totalFees = nearbyFunding.reduce((sum, f) => sum + (f.FEEAMOUNT || 0), 0);
+                        let html = `<div style="font-weight: 600; margin-bottom: 8px; color: var(--accent); border-top: 1px solid var(--glass-border); padding-top: 12px; margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
+                            <span>Contributing Addresses (&le; 0.5 miles):</span>
+                            <span style="color: #f59e0b; background: rgba(245, 158, 11, 0.15); padding: 4px 8px; border-radius: 12px; font-size: 0.8rem;">Total: ${formatMoney(totalFees)}</span>
+                        </div>`;
+                        readout.innerHTML = html;
+                        
+                        const listUl = document.createElement('ul');
+                        listUl.style.cssText = 'list-style-type: none; padding: 0;';
+                        
+                        nearbyFunding.forEach(f => {
+                            const li = document.createElement('li');
+                            li.className = 'funding-li';
+                            li.innerHTML = `<span>${f.ADDRESS}</span> <span style="color: #f59e0b;">${formatMoney(f.FEEAMOUNT)}</span>`;
+                            li.addEventListener('click', (ev) => {
+                                ev.stopPropagation();
+                                document.querySelectorAll('.funding-li').forEach(el => el.classList.remove('active'));
+                                fundingData.forEach(item => {
+                                    if(item.marker) {
+                                        item.marker.setIcon(fundingIcon);
+                                        item.marker.setZIndexOffset(0);
+                                    }
+                                });
+                                li.classList.add('active');
+                                if (f.marker) {
+                                    f.marker.setIcon(L.divIcon({
+                                        className: 'custom-marker funding highlight',
+                                        html: '<div style="background-color: #ef4444; width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff;"></div>',
+                                        iconSize: [14, 14], iconAnchor: [7, 7], popupAnchor: [0, -10]
+                                    }));
+                                    f.marker.setZIndexOffset(1000);
+                                    map.flyTo([f.mapLat || f.Latitude, f.mapLon || f.Longitude], 17, { duration: 1.0 });
+                                    f.marker.openPopup();
+                                }
+                                if (window.innerWidth <= 768) {
+                                    document.getElementById('sidebar').classList.remove('open');
+                                }
+                            });
+                            listUl.appendChild(li);
+                        });
+                        readout.appendChild(listUl);
+                    } else {
+                        readout.innerHTML = `<div style="font-style: italic; color: var(--text-muted); border-top: 1px solid var(--glass-border); padding-top: 12px; margin-top: 12px;">No contributing addresses found within 0.5 miles.</div>`;
+                    }
+                    readout.style.display = 'block';
+                });
+                
+                marker.on('click', () => {
+                    card.click();
+                });
+
+                parkListEl.appendChild(card);
+            }
+        });
+
+
+
+        const parkLayerGroup = L.layerGroup(parkMarkers).addTo(map);
+        const fundingLayerGroup = L.layerGroup(fundingMarkers).addTo(map);
+
+        const baseMaps = {
+            "Dark": darkLayer,
+            "Light": lightLayer,
+            "Satellite": satLayer
+        };
+        const overlayMaps = {
+            "Parks (Green)": parkLayerGroup,
+            "Funding Sources (Orange)": fundingLayerGroup
+        };
+
+        L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
+
+        const group = new L.featureGroup(parkMarkers.concat(fundingMarkers));
+        if (parkMarkers.length > 0 || fundingMarkers.length > 0) {
+            map.fitBounds(group.getBounds().pad(0.1));
+        }
+        
+        // Mobile Sidebar Handlers
+        document.getElementById('mobile-menu-btn').addEventListener('click', () => {
+            document.getElementById('sidebar').classList.add('open');
+        });
+        document.getElementById('mobile-close-btn').addEventListener('click', () => {
+            document.getElementById('sidebar').classList.remove('open');
+        });
+        
+        // Legend Control
+        const legend = L.control({ position: 'bottomleft' });
+        legend.onAdd = function () {
+            const div = L.DomUtil.create('div', 'info legend');
+            div.style.backgroundColor = 'rgba(30, 30, 30, 0.8)';
+            div.style.padding = '10px 15px';
+            div.style.borderRadius = '8px';
+            div.style.border = '1px solid rgba(255, 255, 255, 0.1)';
+            div.style.backdropFilter = 'blur(10px)';
+            div.style.color = '#fff';
+            div.style.fontFamily = 'Inter, sans-serif';
+            div.style.fontSize = '0.85rem';
+            div.style.boxShadow = '0 4px 12px rgba(0,0,0,0.5)';
+
+            div.innerHTML = `
+                <div style="font-weight: 600; margin-bottom: 8px; font-size: 0.95rem;">Map Legend</div>
+                <div style="display: flex; align-items: center; margin-bottom: 6px;">
+                    <div style="width: 14px; height: 14px; border-radius: 50%; background-color: #4ade80; border: 2px solid #fff; margin-right: 8px; box-shadow: 0 0 6px rgba(74, 222, 128, 0.8);"></div>
+                    <span>Park Location</span>
+                </div>
+                <div style="display: flex; align-items: center; margin-bottom: 6px;">
+                    <div style="width: 10px; height: 10px; border-radius: 50%; background-color: #f59e0b; border: 1px solid #fff; margin-right: 10px; margin-left: 2px; box-shadow: 0 0 4px rgba(245, 158, 11, 0.8);"></div>
+                    <span>Funding Source</span>
+                </div>
+                <div style="display: flex; align-items: center; margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px;">
+                    <div style="width: 16px; height: 16px; border-radius: 50%; background-color: rgba(59, 130, 246, 0.1); border: 2px solid #3b82f6; margin-right: 8px;"></div>
+                    <span style="max-width: 200px; line-height: 1.3;">0.5-Mile Radius<br><span style="font-size: 0.75rem; color: #9ca3af;">Parkland Dedication Ordinance fee catchment area</span></span>
+                </div>
+            `;
+            return div;
+        };
+        legend.addTo(map);
+
+    } catch (e) {
+        console.error("Error initializing map: ", e);
+    }
+  </script>
+</body>
+</html>
